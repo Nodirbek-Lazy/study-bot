@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="light dark">
+<title>Study planner</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  --bg: var(--tg-theme-bg-color, #ffffff);
+  --bg2: var(--tg-theme-secondary-bg-color, #f1f3f5);
+  --fg: var(--tg-theme-text-color, #14181c);
+  --hint: var(--tg-theme-hint-color, #66707a);
+  --line: rgba(128, 138, 148, .28);
+  --accent: #0b7f8c;
+  --on-pill: #ffffff;
+  --hot: #cf2f37;
+  --warn: #96610b;
+  --calm: var(--accent);
+  --past: #6a737d;
+  --radius: 14px;
+  --tab-h: 58px;
+}
+:root[data-scheme="dark"] {
+  --bg: var(--tg-theme-bg-color, #17212b);
+  --bg2: var(--tg-theme-secondary-bg-color, #0e1621);
+  --fg: var(--tg-theme-text-color, #f1f4f6);
+  --hint: var(--tg-theme-hint-color, #8d98a3);
+  --accent: #3cc0cd;
+  --on-pill: #0d1317;
+  --hot: #ff6b70;
+  --warn: #f0b445;
+  --past: #9aa4af;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg2); color: var(--fg); }
+body {
+  font: 16px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#app { min-height: 100vh; padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 24px); }
+#app.has-save { padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 86px); }
+
+/* ---------- header ---------- */
+.top { background: var(--bg); padding: 14px 16px 8px; position: sticky; top: 0; z-index: 5; }
+.top h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; }
+.top .row1 { display: flex; align-items: center; gap: 4px; }
+.top .row1 .pill-btn { margin-right: 4px; }
+.top .grow { flex: 1; min-width: 0; }
+.top .sub { color: var(--hint); font-size: 14px; margin-top: 2px; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; }
+.icon-btn:active { background: var(--bg2); }
+.pill-btn { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+.notice { margin: 10px 16px 0; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); color: var(--hint); font-size: 14px; }
+
+/* ---------- month grid ---------- */
+.dow, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.dow { background: var(--bg); padding: 0 4px 6px; border-bottom: 1px solid var(--line); }
+.dow span { text-align: center; font-size: 12px; font-weight: 600; color: var(--hint); }
+.grid { background: var(--bg); padding: 0 4px 8px; }
+.cell {
+  min-height: 66px; padding: 4px 2px 3px; display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  border-top: 1px solid var(--line); border-radius: 0; text-align: center; overflow: hidden;
+}
+.cell .num { align-self: center; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 500; }
+.cell.out .num { color: var(--hint); opacity: .55; }
+.cell.today .num { background: var(--accent); color: var(--on-pill); font-weight: 700; }
+.cell.sel .num { box-shadow: 0 0 0 2px var(--accent); }
+.cell.today.sel .num { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.pill {
+  display: block; font-size: 10px; line-height: 14px; padding: 0 3px; border-radius: 4px; color: var(--on-pill);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; font-weight: 600;
+}
+.hot { --c: var(--hot); } .warn { --c: var(--warn); } .calm { --c: var(--calm); } .past { --c: var(--past); }
+.pill { background: var(--c); }
+.cell.out .pill { opacity: .5; }
+.more { font-size: 10px; color: var(--hint); line-height: 12px; }
+.dots { display: flex; gap: 3px; justify-content: center; min-height: 6px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--hint); }
+.dot.done { background: var(--hint); }
+
+/* ---------- lists ---------- */
+.panel { margin: 10px 12px 0; background: var(--bg); border-radius: var(--radius); overflow: hidden; }
+.panel h2 { margin: 0; padding: 14px 16px 6px; font-size: 17px; letter-spacing: -.01em; }
+.group-h { margin: 16px 16px 6px; font-size: 14px; font-weight: 700; color: var(--hint); }
+.row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); width: 100%; }
+.panel > .row:first-of-type, .panel h2 + .row { border-top: 0; }
+.row .main { flex: 1; min-width: 0; display: block; text-align: left; }
+.row .t { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.row .sub { display: block; font-size: 13px; color: var(--hint); margin-top: 1px; }
+.row.dl .bar { align-self: stretch; width: 4px; border-radius: 2px; background: var(--c); flex: none; }
+.row.dl.past .t { color: var(--hint); }
+.when { color: var(--c); font-weight: 700; }
+.tag { font-size: 11px; font-weight: 700; color: var(--hint); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; flex: none; }
+.chk { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--hint); display: grid; place-items: center; flex: none; color: transparent; }
+.chk svg { width: 16px; height: 16px; }
+.row.aim.done .chk { background: var(--accent); border-color: var(--accent); color: var(--on-pill); }
+.row.aim.done .t { color: var(--hint); text-decoration: line-through; font-weight: 500; }
+.row.aim .t { font-weight: 500; }
+.empty { padding: 16px; color: var(--hint); font-size: 15px; }
+.actions { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.btn { flex: 1; text-align: center; padding: 11px 14px; border-radius: 12px; font-weight: 600; background: var(--bg2); }
+.btn.primary { background: var(--accent); color: var(--on-pill); }
+.btn.danger { color: var(--hot); }
+.btn:active { opacity: .8; }
+
+.progress { padding: 14px 16px 16px; }
+.progress .big { font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.progress .big small { font-size: 15px; font-weight: 500; color: var(--hint); letter-spacing: 0; }
+.meter { height: 8px; border-radius: 4px; background: var(--bg2); margin-top: 10px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.quick { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.quick input { flex: 1; min-width: 0; }
+
+.quote { padding: 18px 16px 6px; font-size: 20px; line-height: 1.3; letter-spacing: -.01em; font-weight: 600; }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); }
+.kv span:last-child { color: var(--hint); text-align: right; }
+
+/* ---------- save bar, tabs, sheet, toast ---------- */
+.savebar {
+  position: fixed; left: 10px; right: 10px; bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 8px);
+  background: var(--fg); color: var(--bg); border-radius: 14px; padding: 8px 8px 8px 16px;
+  display: flex; align-items: center; gap: 8px; z-index: 8; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+}
+.savebar .msg { flex: 1; font-weight: 600; font-size: 15px; }
+.savebar button { padding: 9px 14px; border-radius: 10px; font-weight: 700; }
+.savebar .discard { opacity: .8; }
+.savebar .go { background: var(--accent); color: var(--on-pill); }
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom); background: var(--bg); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(4, 1fr); z-index: 9;
+}
+.tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 600; color: var(--hint); }
+.tabs button svg { width: 24px; height: 24px; }
+.tabs button[aria-current="page"] { color: var(--accent); }
+
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 20; display: flex; align-items: flex-end; }
+.sheet {
+  width: 100%; max-height: 92vh; overflow: auto; background: var(--bg); border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); animation: up .18s ease-out;
+}
+@keyframes up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+.sheet h3 { margin: 0 0 12px; font-size: 20px; letter-spacing: -.01em; }
+.field { display: block; margin-bottom: 12px; }
+.field > span { display: block; font-size: 13px; font-weight: 600; color: var(--hint); margin-bottom: 4px; }
+input[type=text], input[type=date], input[type=time] {
+  width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); min-height: 44px;
+}
+.two { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+.err { color: var(--hot); font-size: 14px; min-height: 20px; margin: 0 0 8px; }
+.help { color: var(--hint); font-size: 13px; margin: 0 0 14px; }
+.sheet .actions { padding: 4px 0 0; border: 0; }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-h) + env(safe-area-inset-bottom) + 76px);
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
+  z-index: 30; max-width: calc(100vw - 32px); text-align: center;
+}
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+</style>
+</head>
+<body>
+<div id="app" aria-live="polite"></div>
+<script src="core.js"></script>
+<script>
+(function () {
+  "use strict";
+  const C = window.Core;
+  const tg = window.Telegram && window.Telegram.WebApp;
+  const root = document.getElementById("app");
+
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const DOW = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+  const FALLBACK = { deadlines: [], aims: [], offset_min: 300, applied: [], quotes: ["Small steps every day beat big bursts once a month."] };
+  const REMINDERS = "Reminders arrive in the group 7 days, 3 days, 1 day and 1 hour before.";
+
+  const S = { tab: "cal", state: FALLBACK, planner: null, sel: null, cy: 0, cm: 0, sheet: null, quote: "", showPast: false, loadError: "" };
+
+  /* ---------- tiny helpers ---------- */
+  function h(tag, attrs) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "value") el.value = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    const add = (kid) => {
+      if (kid === null || kid === undefined || kid === false) return;
+      if (Array.isArray(kid)) kid.forEach(add);
+      else el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    };
+    for (let i = 2; i < arguments.length; i++) add(arguments[i]);
+    return el;
+  }
+  const svg = (inner) => { const s = h("span"); s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`; return s.firstChild; };
+  const ICON = {
+    cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    today: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/>',
+    up: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+    more: '<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+    prev: '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
+    next: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  };
+
+  const now = () => C.nowLocal(S.state.offset_min || 300);
+  const el = (id) => document.getElementById(id);
+  const fmtDay = (date) => { const p = C.parseYmd(date); return `${DAYS[C.weekday(date)].slice(0, 3)} ${p.d} ${MONTHS[p.m].slice(0, 3)}`; };
+  const longDay = (date) => { const p = C.parseYmd(date); return `${DAYS[C.weekday(date)]}, ${p.d} ${MONTHS[p.m]}`; };
+
+  let toastTimer;
+  function toast(msg) {
+    document.querySelectorAll(".toast").forEach((n) => n.remove());
+    const t = h("div", { class: "toast", role: "status" }, msg);
+    document.body.append(t);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.remove(), 2400);
+  }
+
+  /* ---------- storage, loading ---------- */
+  const store = {
+    get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+  };
+
+  function sentBatches(state) {
+    const applied = new Set(state.applied || []);
+    const fresh = store.get("sent", []).filter((b) => !applied.has(b.batch) && Date.now() - b.at < 45 * 60000);
+    store.set("sent", fresh);
+    return fresh;
+  }
+
+  async function load() {
+    try {
+      const r = await fetch("state.json?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      S.state = Object.assign({}, FALLBACK, await r.json());
+      S.loadError = "";
+    } catch (e) {
+      S.loadError = "Couldn't load the latest plans. Check your connection, then tap Refresh in More.";
+    }
+    if (S.planner) S.planner.setState(S.state, sentBatches(S.state));
+    else S.planner = new C.Planner(S.state, sentBatches(S.state));
+  }
+
+  /* ---------- views ---------- */
+  function build(view) {
+    const byDate = {};
+    const slot = (d) => (byDate[d] = byDate[d] || { dl: [], am: [] });
+    view.deadlines.forEach((d) => slot(d.due.slice(0, 10)).dl.push(d));
+    view.aims.forEach((a) => slot(a.day).am.push(a));
+    return byDate;
+  }
+  const urg = (due) => C.urgency(C.minutesUntil(due, now()));
+
+  function tagFor(item) {
+    return item.pending ? h("span", { class: "tag" }, "Unsaved") : item.syncing ? h("span", { class: "tag" }, "Syncing") : null;
+  }
+
+  function dlRow(d) {
+    const mins = C.minutesUntil(d.due, now());
+    const u = C.urgency(mins);
+    return h("button", { class: "row dl " + u, onclick: () => (d.syncing ? toast("Still syncing with the bot.") : openSheet({ kind: "deadline", item: d })), "aria-label": "Edit deadline " + d.title },
+      h("span", { class: "bar" }),
+      h("span", { class: "main" }, h("span", { class: "t" }, d.title),
+        h("span", { class: "sub" }, `${fmtDay(d.due.slice(0, 10))}, ${d.due.slice(11)} · `, h("span", { class: "when" }, mins < 0 ? "passed" : "in " + C.fmtCountdown(mins)))),
+      tagFor(d));
+  }
+
+  function aimRow(a) {
+    const toggle = () => { if (a.syncing) return toast("Still syncing with the bot."); S.planner.setDone(a.id, !a.done); render(); };
+    return h("div", { class: "row aim" + (a.done ? " done" : "") },
+      h("button", { class: "chk", role: "checkbox", "aria-checked": String(a.done), "aria-label": (a.done ? "Mark not done: " : "Mark done: ") + a.text, onclick: toggle }, svg(ICON.check)),
+      h("button", { class: "main", onclick: () => (a.syncing ? toast("Still syncing with the bot.") : openSheet({ kind: "aim", item: a })) }, h("span", { class: "t" }, a.text)),
+      tagFor(a));
+  }
+
+  function dayPanel(date, byDate) {
+    const info = byDate[date] || { dl: [], am: [] };
+    const empty = !info.dl.length && !info.am.length;
+    return h("section", { class: "panel" },
+      h("h2", {}, longDay(date) + (date === now().date ? " (today)" : "")),
+      empty && h("p", { class: "empty" }, "Nothing planned. Add a deadline or an aim."),
+      info.dl.map(dlRow), info.am.map(aimRow),
+      h("div", { class: "actions" },
+        h("button", { class: "btn primary", onclick: () => openSheet({ kind: "deadline", date }) }, "Add deadline"),
+        h("button", { class: "btn", onclick: () => openSheet({ kind: "aim", date }) }, "Add aim")));
+  }
+
+  function calendarTab(view, byDate) {
+    const cells = C.monthGrid(S.cy, S.cm);
+    const today = now().date;
+    const go = (delta) => { const d = new Date(Date.UTC(S.cy, S.cm + delta, 1)); S.cy = d.getUTCFullYear(); S.cm = d.getUTCMonth(); render(); };
+    const goToday = () => { const p = C.parseYmd(today); S.cy = p.y; S.cm = p.m; S.sel = today; render(); };
+    const header = h("header", { class: "top" }, h("div", { class: "row1" },
+      h("h1", { class: "grow" }, `${MONTHS[S.cm]} ${S.cy}`),
+      h("button", { class: "pill-btn", onclick: goToday }, "Today"),
+      h("button", { class: "icon-btn", "aria-label": "Previous month", onclick: () => go(-1) }, svg(ICON.prev)),
+      h("button", { class: "icon-btn", "aria-label": "Next month", onclick: () => go(1) }, svg(ICON.next))));
+    const grid = h("div", { class: "grid", role: "grid" }, cells.map((c) => {
+      const info = byDate[c.date] || { dl: [], am: [] };
+      const day = C.parseYmd(c.date).d;
+      const cls = ["cell", c.inMonth ? "" : "out", c.date === today ? "today" : "", c.date === S.sel ? "sel" : ""].join(" ");
+      return h("button", {
+        class: cls, role: "gridcell", "aria-label": `${longDay(c.date)}: ${info.dl.length} deadlines, ${info.am.length} aims`,
+        "aria-selected": String(c.date === S.sel),
+        onclick: () => { S.sel = c.date; if (!c.inMonth) { const p = C.parseYmd(c.date); S.cy = p.y; S.cm = p.m; } render(); },
+      },
+        h("span", { class: "num" }, day),
+        info.dl.slice(0, 2).map((d) => h("span", { class: "pill " + urg(d.due) }, d.title)),
+        info.dl.length > 2 && h("span", { class: "more" }, `+${info.dl.length - 2} more`),
+        info.am.length > 0 && h("span", { class: "dots" }, info.am.slice(0, 4).map((a) => h("i", { class: "dot" + (a.done ? " done" : "") }))));
+    }));
+    return [header, h("div", { class: "dow", "aria-hidden": "true" }, DOW.map((d) => h("span", {}, d))), grid, dayPanel(S.sel, byDate)];
+  }
+
+  function todayTab(view, byDate) {
+    const t = now();
+    const info = byDate[t.date] || { dl: [], am: [] };
+    const done = info.am.filter((a) => a.done).length;
+    const pct = info.am.length ? Math.round((done / info.am.length) * 100) : 0;
+    const input = h("input", { type: "text", id: "quick", placeholder: "What will you do today?", maxlength: "200", "aria-label": "New aim for today", enterkeyhint: "done" });
+    const add = () => { const v = input.value.trim(); if (!v) return; S.planner.addAim(t.date, v); render(); setTimeout(() => el("quick") && el("quick").focus(), 0); };
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+    const next = view.deadlines.filter((d) => C.minutesUntil(d.due, t) >= 0).slice(0, 3);
+    return [
+      h("header", { class: "top" }, h("h1", {}, "Today"), h("div", { class: "sub" }, longDay(t.date))),
+      h("section", { class: "panel" },
+        h("div", { class: "progress" },
+          h("div", { class: "big" }, info.am.length ? `${done} of ${info.am.length}` : "No aims yet", info.am.length ? h("small", {}, " aims done") : null),
+          h("div", { class: "meter", role: "progressbar", "aria-valuenow": String(pct), "aria-valuemin": "0", "aria-valuemax": "100", "aria-label": "Aims done today" }, h("i", { style: `width:${pct}%` }))),
+        info.am.map(aimRow),
+        h("div", { class: "quick" }, input, h("button", { class: "btn primary", style: "flex:none", onclick: add }, "Add"))),
+      h("div", { class: "group-h" }, "Next deadlines"),
+      h("section", { class: "panel" }, next.length ? next.map(dlRow) : h("p", { class: "empty" }, "No upcoming deadlines.")),
+    ];
+  }
+
+  function upcomingTab(view) {
+    const t = now();
+    const groups = [["Today", []], ["Tomorrow", []], ["Next 7 days", []], ["Later", []]];
+    const past = [];
+    const tomorrow = C.addDays(t.date, 1), week = C.addDays(t.date, 8);
+    view.deadlines.forEach((d) => {
+      const day = d.due.slice(0, 10);
+      if (C.minutesUntil(d.due, t) < 0) past.push(d);
+      else if (day === t.date) groups[0][1].push(d);
+      else if (day === tomorrow) groups[1][1].push(d);
+      else if (day < week) groups[2][1].push(d);
+      else groups[3][1].push(d);
+    });
+    const any = groups.some((g) => g[1].length);
+    return [
+      h("header", { class: "top" }, h("h1", {}, "Upcoming"), h("div", { class: "sub" }, "Every deadline, soonest first")),
+      !any && h("section", { class: "panel", style: "margin-top:12px" }, h("p", { class: "empty" }, "No upcoming deadlines. Add one from the Calendar tab."), h("div", { class: "actions" }, h("button", { class: "btn primary", onclick: () => openSheet({ kind: "deadline", date: t.date }) }, "Add deadline"))),
+      groups.filter((g) => g[1].length).map(([name, list]) => [h("div", { class: "group-h" }, name), h("section", { class: "panel" }, list.map(dlRow))]),
+      past.length > 0 && h("div", { class: "group-h" }, h("button", { onclick: () => { S.showPast = !S.showPast; render(); }, "aria-expanded": String(S.showPast) }, `${S.showPast ? "Hide" : "Show"} past (${past.length})`)),
+      S.showPast && past.length > 0 && h("section", { class: "panel" }, past.slice().reverse().map(dlRow)),
+    ];
+  }
+
+  function moreTab() {
+    const quotes = S.state.quotes && S.state.quotes.length ? S.state.quotes : FALLBACK.quotes;
+    if (!S.quote) S.quote = quotes[Math.floor(Math.random() * quotes.length)];
+    const another = () => { let q; do { q = quotes[Math.floor(Math.random() * quotes.length)]; } while (quotes.length > 1 && q === S.quote); S.quote = q; render(); };
+    return [
+      h("header", { class: "top" }, h("h1", {}, "More")),
+      h("section", { class: "panel", style: "margin-top:12px" },
+        h("p", { class: "quote" }, S.quote),
+        h("div", { class: "actions", style: "border:0" }, h("button", { class: "btn", onclick: another }, "Another one"))),
+      h("div", { class: "group-h" }, "Daily messages in the group"),
+      h("section", { class: "panel" }, h("div", { class: "kv" }, h("span", {}, "Morning check-in"), h("span", {}, "07:00")), h("div", { class: "kv" }, h("span", {}, "Midday reminder"), h("span", {}, "13:00")), h("div", { class: "kv" }, h("span", {}, "Evening review"), h("span", {}, "18:00")), h("div", { class: "kv" }, h("span", {}, "Time zone"), h("span", {}, S.state.tz || "Asia/Tashkent"))),
+      h("div", { class: "group-h" }, "Deadline reminders"),
+      h("section", { class: "panel" }, h("p", { class: "empty", style: "margin:0" }, REMINDERS)),
+      h("div", { class: "group-h" }, "Sync"),
+      h("section", { class: "panel" },
+        h("p", { class: "empty", style: "margin:0" }, "The bot checks for saved changes every few minutes. Changes you've saved show as Syncing until then."),
+        h("div", { class: "actions" }, h("button", { class: "btn", onclick: async () => { await load(); render(); toast(S.loadError ? "Couldn't refresh" : "Refreshed"); } }, "Refresh"))),
+    ];
+  }
+
+  /* ---------- add / edit sheet ---------- */
+  function openSheet(cfg) { S.sheet = cfg; render(); const f = el("f-title"); if (f && !cfg.item) f.focus(); }
+  function closeSheet() { S.sheet = null; render(); }
+
+  function sheet() {
+    const cfg = S.sheet, t = now(), item = cfg.item, isDl = cfg.kind === "deadline";
+    const date = item ? (isDl ? item.due.slice(0, 10) : item.day) : cfg.date || t.date;
+    const time = item && isDl ? item.due.slice(11) : "23:59";
+    const title = h("input", { type: "text", id: "f-title", value: item ? (isDl ? item.title : item.text) : "", maxlength: "200", placeholder: isDl ? "Calculus exam" : "Finish chapter 4", autocomplete: "off" });
+    const dateIn = h("input", { type: "date", id: "f-date", value: date, min: isDl ? t.date : null });
+    const timeIn = isDl ? h("input", { type: "time", id: "f-time", value: time }) : null;
+    const err = h("p", { class: "err", role: "alert" });
+    const submit = () => {
+      const text = title.value.trim();
+      if (!text) { err.textContent = isDl ? "Enter a title for the deadline." : "Enter what you want to do."; title.focus(); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIn.value)) { err.textContent = "Pick a date."; return; }
+      if (isDl) {
+        const tm = timeIn.value || "23:59";
+        const due = `${dateIn.value}T${tm}`;
+        if (C.dueMs(due) <= t.ms) { err.textContent = "Pick a time in the future."; return; }
+        if (item) S.planner.editDeadline(item.id, { title: text, due }); else S.planner.addDeadline(text, due);
+        toast(item ? "Deadline updated. Tap Save to send." : "Deadline added. Tap Save to send.");
+      } else {
+        if (item) S.planner.editAim(item.id, { text, day: dateIn.value }); else S.planner.addAim(dateIn.value, text);
+        toast(item ? "Aim updated. Tap Save to send." : "Aim added. Tap Save to send.");
+      }
+      S.sel = dateIn.value; { const p = C.parseYmd(dateIn.value); S.cy = p.y; S.cm = p.m; }
+      S.sheet = null; render();
+    };
+    const remove = () => {
+      if (isDl) S.planner.removeDeadline(item.id); else S.planner.removeAim(item.id);
+      toast((isDl ? "Deadline" : "Aim") + " removed. Tap Save to send.");
+      S.sheet = null; render();
+    };
+    const form = h("form", { onsubmit: (e) => { e.preventDefault(); submit(); } },
+      h("h3", {}, item ? (isDl ? "Edit deadline" : "Edit aim") : isDl ? "New deadline" : "New aim"),
+      h("label", { class: "field" }, h("span", {}, isDl ? "Title" : "Aim"), title),
+      isDl ? h("div", { class: "two" }, h("label", { class: "field" }, h("span", {}, "Date"), dateIn), h("label", { class: "field" }, h("span", {}, "Time"), timeIn))
+           : h("label", { class: "field" }, h("span", {}, "Day"), dateIn),
+      err,
+      isDl && h("p", { class: "help" }, REMINDERS),
+      h("div", { class: "actions" },
+        item && h("button", { type: "button", class: "btn danger", onclick: remove }, "Delete"),
+        h("button", { type: "button", class: "btn", onclick: closeSheet }, "Cancel"),
+        h("button", { type: "submit", class: "btn primary" }, item ? "Done" : "Add")));
+    return h("div", { class: "scrim", onclick: (e) => { if (e.target.classList.contains("scrim")) closeSheet(); } },
+      h("div", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-label": form.firstChild.textContent }, form));
+  }
+
+  /* ---------- save ---------- */
+  function save() {
+    const p = S.planner;
+    if (!tg || !tg.initData) return toast("Open the planner from the bot's Open planner button to save.");
+    const batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const { json, bytes } = p.payload(batch);
+    if (bytes > C.MAX_BYTES) return toast("Too many changes at once. Discard some and save again.");
+    const sent = store.get("sent", []);
+    sent.push({ batch, ops: p.wireOps(), at: Date.now() });
+    store.set("sent", sent);
+    tg.sendData(json); // closes the Mini App; the bot replies in the chat
+  }
+
+  function saveBar() {
+    const n = S.planner.count;
+    return h("div", { class: "savebar", role: "region", "aria-label": "Unsaved changes" },
+      h("span", { class: "msg" }, `${n} unsaved change${n === 1 ? "" : "s"}`),
+      h("button", { class: "discard", onclick: () => { S.planner.discard(); render(); } }, "Discard"),
+      h("button", { class: "go", onclick: save }, "Save"));
+  }
+
+  /* ---------- render ---------- */
+  const TABS = [["cal", "Calendar", ICON.cal], ["today", "Today", ICON.today], ["up", "Upcoming", ICON.up], ["more", "More", ICON.more]];
+
+  function render() {
+    const keep = window.scrollY;
+    const view = S.planner.view();
+    const byDate = build(view);
+    if (!S.sel) S.sel = now().date;
+    const body = S.tab === "cal" ? calendarTab(view, byDate) : S.tab === "today" ? todayTab(view, byDate) : S.tab === "up" ? upcomingTab(view) : moreTab();
+    const dirty = S.planner.count > 0;
+    root.className = dirty ? "has-save" : "";
+    root.replaceChildren(...[
+      S.loadError && h("div", { class: "notice", role: "alert" }, S.loadError),
+      ...body.flat(Infinity),
+      dirty && saveBar(),
+      h("nav", { class: "tabs", "aria-label": "Sections" }, TABS.map(([id, label, icon]) =>
+        h("button", { "aria-current": S.tab === id ? "page" : null, onclick: () => { S.tab = id; S.sheet = null; render(); window.scrollTo(0, 0); } }, svg(icon), label))),
+      S.sheet && sheet(),
+    ].filter(Boolean)); // replaceChildren would turn false/null into the text "false"/"null"
+    window.scrollTo(0, keep);
+    try { if (tg) (dirty ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation()); } catch (e) { /* older clients */ }
+  }
+
+  /* ---------- start ---------- */
+  function applyScheme() {
+    const dark = tg ? tg.colorScheme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.scheme = dark ? "dark" : "light";
+  }
+  if (tg) { try { tg.ready(); tg.expand(); tg.onEvent("themeChanged", () => { applyScheme(); render(); }); } catch (e) { /* ignore */ } }
+  applyScheme();
+  load().then(() => {
+    const p = C.parseYmd(now().date);
+    S.cy = p.y; S.cm = p.m; S.sel = now().date;
+    render();
+  });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !S.sheet) render(); });
+})();
+</script>
+</body>
+</html>
